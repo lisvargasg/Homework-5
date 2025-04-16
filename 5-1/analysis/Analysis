@@ -1,0 +1,127 @@
+# Meta --------------------------------------------------------------------
+# Author:        Lisbeth Vargas
+# Date Created:  4/16/2025
+# Date Edited:   4/16/2025
+# Homework 5-1
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table, gdata, scales, knitr, modelsummary, broom)
+
+final.data <- read_tsv('/Users/lisbethvargas/Desktop/GitHub/Homework-5/5-1/data/output/acs_medicaid.txt')
+
+# Question 1 -------------------------------------------------------------
+q1 <- final.data %>%
+  group_by(year) %>%
+  summarise(avg_direct = mean(ins_direct, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = avg_direct)) +
+  geom_line(color = "#2980B9", size = 1.2) +
+  labs(title = "Average Share of Adults with Direct Purchase Insurance Over Time",
+       x = "Year",
+       y = "Share of Adults (Direct Purchase)") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  theme_minimal()
+
+# Question 3 -------------------------------------------------------------
+q3 <- final.data %>%
+  group_by(year) %>%
+  summarise(avg_medicaid = mean(ins_medicaid, na.rm = TRUE)) %>%
+  ggplot(aes(x = year, y = avg_medicaid)) +
+  geom_line(color = "#E74C3C", size = 1.2) +
+  labs(title = "Average Share of Adults with Medicaid Coverage Over Time",
+       x = "Year",
+       y = "Share of Adults (Medicaid)") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  theme_minimal()
+
+# Question 4 -------------------------------------------------------------
+final.data <- final.data %>%
+  mutate(uninsured_share = uninsured / adult_pop)
+
+final.data_filtered <- final.data %>%
+  filter(expand_year == 2014) %>%
+  mutate(expansion_status = ifelse(expand == TRUE, "Expanded in 2014", "Did not expand in 2014"))
+
+q4 <- ggplot(final.data_filtered, aes(x = year, y = uninsured_share, color = expansion_status)) +
+  geom_line(size = 1.2) +
+  geom_point(size = 2) +
+  labs(title = "Share of Uninsured Over Time: Expanded vs. Non-Expanded States (2014)",
+       x = "Year",
+       y = "Share of Uninsured Adults") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+# Question 5 -------------------------------------------------------------
+final.data %>%
+  filter(is.na(expand_year) | is.na(year)) %>%
+  select(State, expand_year, year) 
+
+final.data %>%
+  filter(year %in% c(2012, 2015)) %>%
+  mutate(expansion_status = ifelse(expand_year == 2014, "Expansion", "Non-Expansion")) %>% 
+  filter(!is.na(expansion_status) & !is.na(uninsured_share)) %>% 
+  group_by(expansion_status, year) %>% 
+  summarise(avg_uninsured = mean(uninsured_share, na.rm = TRUE), .groups = "drop") %>%
+  pivot_wider(names_from = year, values_from = avg_uninsured)
+
+# Question 6 -------------------------------------------------------------
+final.data <- final.data %>%
+  mutate(Post_t = ifelse(year >= 2014, 1, 0), 
+         Treatment_i = ifelse(expand_year == 2014, 1, 0)) 
+
+did_model <- lm(uninsured_share ~ Post_t * Treatment_i + factor(year) + factor(State), data = final.data)
+
+summary(did_model)
+
+# Question 7 -------------------------------------------------------------
+install.packages("fixest")
+library(fixest)
+
+final.data <- final.data %>%
+  mutate(Post_t = ifelse(year >= 2014, 1, 0),
+         Treatment_i = ifelse(expand_year == 2014, 1, 0)) 
+
+did_model_fixest <- feols(uninsured_share ~ Post_t * Treatment_i | State + year, data = final.data)
+
+summary(did_model_fixest)
+
+# Question 8 -------------------------------------------------------------
+final.data <- final.data %>%
+  mutate(Post_t = ifelse(year >= 2014, 1, 0), 
+         Treatment_i = ifelse(expand_year <= 2014, 1, 0))
+
+did_model_fixest_all_states <- feols(uninsured_share ~ Post_t * Treatment_i | State + year, data = final.data)
+
+summary(did_model_fixest_all_states)
+
+# Question 9 -------------------------------------------------------------
+final.data <- final.data %>% filter(!is.na(rel_year))
+
+event_study_model <- feols(uninsured_share ~ factor(rel_year) + Treatment_i | State, data = final.data)
+
+summary(event_study_model)
+
+coef_table <- coef(event_study_model)
+rel_year_coefs <- coef_table[grep("^factor\\(rel_year", names(coef_table))]
+
+se_table <- sqrt(diag(vcov(event_study_model))) 
+rel_year_se <- se_table[grep("^factor\\(rel_year", names(coef_table))]
+
+event_study_df <- data.frame(
+  rel_year = as.numeric(gsub("factor\\(rel_year", "", names(rel_year_coefs))),
+  coef = rel_year_coefs,
+  se = rel_year_se)
+
+print(event_study_df)
+
+ggplot(event_study_df, aes(x = rel_year, y = coef)) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = coef - 1.96 * se, ymax = coef + 1.96 * se), width = 0.2) +
+  theme_minimal() +
+  labs(
+    title = "Event Study of Medicaid Expansion on Uninsurance Rate",
+    x = "Years Relative to Medicaid Expansion (2014)",
+    y = "Estimated Effect on Uninsurance Rate") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+head(final.data$date_adopted)
