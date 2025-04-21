@@ -78,8 +78,8 @@ install.packages("fixest")
 library(fixest)
 
 final.data <- final.data %>%
-  mutate(Post_t = ifelse(year >= 2014, 1, 0),
-         Treatment_i = ifelse(expand_year == 2014, 1, 0)) 
+  mutate(Post_t = ifelse(year >= 2014, 1, 0), 
+         Treatment_i = ifelse(expand_year == 2014, 1, 0))
 
 did_model_fixest <- feols(uninsured_share ~ Post_t * Treatment_i | State + year, data = final.data)
 
@@ -95,33 +95,5 @@ did_model_fixest_all_states <- feols(uninsured_share ~ Post_t * Treatment_i | St
 summary(did_model_fixest_all_states)
 
 # Question 9 -------------------------------------------------------------
-final.data <- final.data %>% filter(!is.na(rel_year))
-
-event_study_model <- feols(uninsured_share ~ factor(rel_year) + Treatment_i | State, data = final.data)
-
-summary(event_study_model)
-
-coef_table <- coef(event_study_model)
-rel_year_coefs <- coef_table[grep("^factor\\(rel_year", names(coef_table))]
-
-se_table <- sqrt(diag(vcov(event_study_model))) 
-rel_year_se <- se_table[grep("^factor\\(rel_year", names(coef_table))]
-
-event_study_df <- data.frame(
-  rel_year = as.numeric(gsub("factor\\(rel_year", "", names(rel_year_coefs))),
-  coef = rel_year_coefs,
-  se = rel_year_se)
-
-print(event_study_df)
-
-ggplot(event_study_df, aes(x = rel_year, y = coef)) +
-  geom_point() +
-  geom_line() +
-  geom_errorbar(aes(ymin = coef - 1.96 * se, ymax = coef + 1.96 * se), width = 0.2) +
-  theme_minimal() +
-  labs(
-    title = "Event Study of Medicaid Expansion on Uninsurance Rate",
-    x = "Years Relative to Medicaid Expansion (2014)",
-    y = "Estimated Effect on Uninsurance Rate") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-head(final.data$date_adopted)
+rm(list=c("final.data"))
+save.image("/Users/lisbethvargas/Desktop/GitHub/Homework-5/5-1/analysis/hwk5_workspace.Rdata")
