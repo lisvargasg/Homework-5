@@ -5,95 +5,121 @@
 # Homework 5-1
 
 if (!require("pacman")) install.packages("pacman")
-pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table, gdata, scales, knitr, modelsummary, broom)
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table, gdata, scales, knitr, modelsummary, broom, fixest)
 
 final.data <- read_tsv('/Users/lisbethvargas/Desktop/GitHub/Homework-5/5-1/data/output/acs_medicaid.txt')
 
 # Question 1 -------------------------------------------------------------
+final.data <- final.data %>%
+  mutate(ins_direct_share = ins_direct / adult_pop)
+
 q1 <- final.data %>%
   group_by(year) %>%
-  summarise(avg_direct = mean(ins_direct, na.rm = TRUE)) %>%
+  summarise(avg_direct = mean(ins_direct_share, na.rm = TRUE)) %>%
   ggplot(aes(x = year, y = avg_direct)) +
-  geom_line(color = "#2980B9", size = 1.2) +
-  labs(title = "Average Share of Adults with Direct Purchase Insurance Over Time",
+  geom_line(color = "black", size = 1.2) +
+  labs(title = "Average Share of Adults with Direct Purchase Insurance",
        x = "Year",
-       y = "Share of Adults (Direct Purchase)") +
+       y = "Share of Adults") +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
   theme_minimal()
 
 # Question 3 -------------------------------------------------------------
+final.data <- final.data %>%
+  mutate(ins_medicaid_share = ins_medicaid / adult_pop)
+
 q3 <- final.data %>%
   group_by(year) %>%
-  summarise(avg_medicaid = mean(ins_medicaid, na.rm = TRUE)) %>%
+  summarise(avg_medicaid = mean(ins_medicaid_share, na.rm = TRUE)) %>%
   ggplot(aes(x = year, y = avg_medicaid)) +
-  geom_line(color = "#E74C3C", size = 1.2) +
-  labs(title = "Average Share of Adults with Medicaid Coverage Over Time",
+  geom_line(color = "black", size = 1.2) +
+  labs(title = "Average Share of Adults with Medicaid Coverage",
        x = "Year",
-       y = "Share of Adults (Medicaid)") +
+       y = "Share of Adults") +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
   theme_minimal()
 
 # Question 4 -------------------------------------------------------------
-final.data <- final.data %>%
-  mutate(uninsured_share = uninsured / adult_pop)
+expanded <- final.data %>%
+  group_by(State) %>%
+  summarize(first_expand_year = unique(year(date_adopted))) %>%
+  mutate(
+    expand_group = case_when(
+      is.na(first_expand_year) ~ "Never Expanded",
+      first_expand_year == 2014 ~ "Expanded in 2014",
+      TRUE ~ NA_character_  )) %>%
+  filter(!is.na(expand_group))
 
-final.data_filtered <- final.data %>%
-  filter(expand_year == 2014) %>%
-  mutate(expansion_status = ifelse(expand == TRUE, "Expanded in 2014", "Did not expand in 2014"))
+final.data.exp <- final.data %>%
+  inner_join(expanded, by = "State")
 
-q4 <- ggplot(final.data_filtered, aes(x = year, y = uninsured_share, color = expansion_status)) +
-  geom_line(size = 1.2) +
-  geom_point(size = 2) +
-  labs(title = "Share of Uninsured Over Time: Expanded vs. Non-Expanded States (2014)",
-       x = "Year",
-       y = "Share of Uninsured Adults") +
-  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
-  theme_minimal() +
-  theme(legend.title = element_blank())
+uninsured.share <- final.data.exp %>%
+  group_by(year, expand_group) %>%
+  summarize(
+    total_uninsured = sum(uninsured, na.rm = TRUE),
+    total_adult_pop = sum(adult_pop, na.rm = TRUE),
+    share_uninsured = total_uninsured / total_adult_pop,
+    .groups = "drop")
+
+q4 <- ggplot(uninsured.share, aes(x = year, y = share_uninsured, color = expand_group)) +
+    geom_line(size = 2) + 
+    geom_point() +
+    geom_vline(xintercept = 2014, linetype = "dashed", color = "black") +
+    scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+    scale_color_manual(values = c("black", "gray")) +
+    labs(
+        title = "Uninsured Rate by Medicaid Expansion Status (2012–2019)",
+        x = "Year",
+        y = "Share Uninsured",
+        color = "Expansion Status") +
+    theme_minimal()
 
 # Question 5 -------------------------------------------------------------
-final.data %>%
-  filter(is.na(expand_year) | is.na(year)) %>%
-  select(State, expand_year, year) 
-
-final.data %>%
+dd.table <- final.data.exp %>%
   filter(year %in% c(2012, 2015)) %>%
-  mutate(expansion_status = ifelse(expand_year == 2014, "Expansion", "Non-Expansion")) %>% 
-  filter(!is.na(expansion_status) & !is.na(uninsured_share)) %>% 
-  group_by(expansion_status, year) %>% 
-  summarise(avg_uninsured = mean(uninsured_share, na.rm = TRUE), .groups = "drop") %>%
+  group_by(expand_group, year) %>%
+  summarize(
+    avg_uninsured = sum(uninsured, na.rm = TRUE) / sum(adult_pop, na.rm = TRUE),
+    .groups = "drop") %>%
   pivot_wider(names_from = year, values_from = avg_uninsured)
 
+q5 <- dd.table %>%
+  mutate(
+    diff = `2015` - `2012`)
+
 # Question 6 -------------------------------------------------------------
-final.data <- final.data %>%
-  mutate(Post_t = ifelse(year >= 2014, 1, 0), 
-         Treatment_i = ifelse(expand_year == 2014, 1, 0)) 
+dd.reg.data <- final.data.exp %>%
+  filter(expand_group %in% c("Expanded in 2014", "Never Expanded")) %>%
+  mutate(
+    treat = ifelse(expand_group == "Expanded in 2014", 1, 0),
+    post = ifelse(year >= 2014, 1, 0),
+    treat_post = treat * post,
+    uninsured_rate = uninsured / adult_pop)
 
-did_model <- lm(uninsured_share ~ Post_t * Treatment_i + factor(year) + factor(State), data = final.data)
+q6 <- lm(uninsured_rate ~ treat + post + treat_post, data = dd.reg.data)
 
-summary(did_model)
+library(modelsummary)
+modelsummary(q6, stars = TRUE, output = "markdown")
 
 # Question 7 -------------------------------------------------------------
-install.packages("fixest")
-library(fixest)
+q7 <- feols(uninsured_rate ~ treat_post | State + year, data = dd.reg.data)
 
-final.data <- final.data %>%
-  mutate(Post_t = ifelse(year >= 2014, 1, 0), 
-         Treatment_i = ifelse(expand_year == 2014, 1, 0))
-
-did_model_fixest <- feols(uninsured_share ~ Post_t * Treatment_i | State + year, data = final.data)
-
-summary(did_model_fixest)
+library(modelsummary)
+modelsummary(q7, stars = TRUE, output = "markdown")
 
 # Question 8 -------------------------------------------------------------
-final.data <- final.data %>%
-  mutate(Post_t = ifelse(year >= 2014, 1, 0), 
-         Treatment_i = ifelse(expand_year <= 2014, 1, 0))
+dd_all_states <- final.data %>%
+  mutate(
+    year = as.integer(year),
+    treat = if_else(!is.na(date_adopted) & year >= year(date_adopted), 1, 0),
+    uninsured_rate = uninsured / adult_pop)
 
-did_model_fixest_all_states <- feols(uninsured_share ~ Post_t * Treatment_i | State + year, data = final.data)
+q8 <- feols(uninsured_rate ~ treat | State + year, data = dd_all_states)
 
-summary(did_model_fixest_all_states)
+library(modelsummary)
+modelsummary(q8, stars = TRUE, output = "markdown")
 
 # Question 9 -------------------------------------------------------------
+
 rm(list=c("final.data"))
 save.image("/Users/lisbethvargas/Desktop/GitHub/Homework-5/5-1/analysis/hwk5_workspace.Rdata")

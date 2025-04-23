@@ -60,24 +60,63 @@ q4
 \noindent Question 5. Calculate the average percent of uninsured individuals in 2012 and 2015, separately for expansion and non-expansion states. Present your results in a basic 2x2 DD table.
 ```{r}
 #| echo=FALSE, fig.show='hold'
+kable(
+  q5 %>%
+    mutate(
+      `2012` = scales::percent(`2012`, accuracy = 0.1),
+      `2015` = scales::percent(`2015`, accuracy = 0.1),
+      diff = scales::percent(diff, accuracy = 0.1)
+    ),
+  format = "latex",
+  caption = "Average Uninsured Rates by Expansion Status",
+  col.names = c("Group", "2012", "2015", "Difference"),
+  booktabs = TRUE,
+  align = c("l", "c", "c", "c"))
 ```
 
 \newpage
 \noindent Question 6. Estimate the effect of Medicaid expansion on the uninsurance rate using a standard DD regression estimator, again focusing only on states that expanded in 2014 versus those that never expanded.
 ```{r}
-#| echo=FALSE, fig.show='hold'
+#| echo=FALSE, results='asis'
+kable(
+  broom::tidy(q6, conf.int = TRUE),
+  format = "latex",
+  caption = "Difference-in-Differences Model",
+  booktabs = TRUE,
+  digits = 3)
 ```
 
 \newpage
 \noindent Question 7. Include state and year fixed effects in your estimates. Try using the lfe or fixest package to estimate this instead of directly including the fixed effects.
 ```{r}
-#| echo=FALSE, fig.show='hold'
+#| echo=FALSE, , results='asis'
+kable(
+  broom::tidy(q7, conf.int = TRUE),
+  format = "latex",
+  caption = "Fixed Effects Model",
+  booktabs = TRUE,
+  digits = 3)
 ```
 
 \newpage
 \noindent Question 8. Repeat the analysis in question 7 but include all states (even those that expanded after 2014). Are your results different? If so, why?
 ```{r}
+#| echo=FALSE, results='asis'
+kable(
+  broom::tidy(q8, conf.int = TRUE),
+  format = "latex",
+  caption = "Fixed Effects Model (All States)",
+  booktabs = TRUE,
+  digits = 3)
+```
+
+\newpage
+\noindent Question 9. Provide an “event study” graph showing the effects of Medicaid expansion in each year. Use the specification that includes state and year fixed effects, limited to states that expanded in 2014 or never expanded.
+```{r}
 #| echo=FALSE, fig.show='hold'
 ```
+
+\newpage
+\noindent Question 10. Repeat part 9 but again include states that expanded after 2014.
 
 WORDS WORDS WORDS 
