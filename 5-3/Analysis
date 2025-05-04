@@ -30,7 +30,7 @@ q1 <- direct.plot <- final.data %>% group_by(year) %>% summarize(mean=mean(perc_
     x="Year",
     y="Fraction with Direct Purchase",
     title="Share of Direct Purchase Insurance over Time") +
-  geom_vline(xintercept=2013.5, color="black")
+  geom_vline(xintercept=2013.5, color="red")
 
 # Question 3 -------------------------------------------------------------
 q3 <- medicaid.plot <- final.data %>% group_by(year) %>% summarize(mean=mean(perc_medicaid)) %>%
@@ -39,7 +39,7 @@ q3 <- medicaid.plot <- final.data %>% group_by(year) %>% summarize(mean=mean(per
     x="Year",
     y="Fraction with Medicaid",
     title="Share of Medicaid Insurance over Time") +
-  geom_vline(xintercept=2013.5, color="black")
+  geom_vline(xintercept=2013.5, color="red")
 
 # Question 4 -------------------------------------------------------------
 final.data <- final.data %>%
@@ -106,9 +106,14 @@ reg.data2 <- final.data %>%
 fe.est2 <- feols(perc_unins~treat | State + year, data=reg.data2)
 
 # Question 8 -------------------------------------------------------------
+reg.data.all <- final.data %>%
+  mutate(expand_ever = as.integer(!is.na(expand_year)),
+    State = as.factor(State),
+    year = as.factor(year))
+
 mod.twfe <- feols(perc_unins~i(year, expand_ever, ref=2013) | State + year,
                   cluster=~State,
-                  data=reg.data)
+                  data=reg.data.all)
 
 # Question 9 -------------------------------------------------------------
 reg.data2 <- reg.data2 %>%
@@ -118,7 +123,6 @@ reg.data2 <- reg.data2 %>%
 mod.twfe2 <- feols(perc_unins~i(time_to_treat, expand_ever, ref=-1) | State + year,
                   cluster=~State,
                   data=reg.data2)
-
 
 rm(list=c("final.data","ins.plot.dat"))
 save.image("/Users/lisbethvargas/Desktop/GitHub/Homework-5/5-3/hwk5_workspace.Rdata")

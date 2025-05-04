@@ -127,7 +127,7 @@ modelsummary(models,
 ```
 
 \newpage
-\noindent 4. Repeat the analysis in question 7 but include all states. Are your results different? If so, why?
+\noindent 4. Repeat the analysis in question 3 but include all states. Are your results different? Why?
 ```{r}
 #| echo: false
 #| label: tbl-ddregs3
@@ -141,6 +141,7 @@ modelsummary(models,
                            "treat" = "Post x Expand"),
              gof_omit='DF|F|Lik|AIC|BIC|Adj')
 ```
+When we expand the analysis to include all states, the estimated effect of Medicaid expansion on the uninsurance rate becomes smaller in magnitude (from -0.020 to -0.023) and less statistically significant at p=0.005. This different is a consequence of applying a two-way fixed effects (TWFE) model in a setting where treatment timing varies across units, without adjusting for treatment heterogeneity over time. The TWFE model mistakenly treats states that expanded after 2014 as "untreated" until the year they expand -- distorting the control group by mixing late-expanding states with early expanders. The failure to acount for the varying timing of Medicaid expansions, and potentially different trends, impacts the estimated effect and reduces its statistically significance.  
 
 \newpage
 \noindent 5. Provide an “event study” graph showing the effects of Medicaid expansion in each year. Use the specification that includes state and year fixed effects, limited to states that expanded in 2014 or never expanded.
@@ -155,7 +156,7 @@ iplot(mod.twfe,
 ```
 
 \newpage
-\noindent 6. Repeat part 9 but again include states that expanded after 2014.
+\noindent 6. Repeat part 5 but again include states that expanded after 2014.
 ```{r}
 #| echo: false
 #| label: fig-eventstudy2
@@ -165,3 +166,6 @@ iplot(mod.twfe2,
       xlab = 'Time to treatment',
       main = '')
 ```
+
+\vspace{2cm}
+Thank you for a great semester! And congrats on defending your thesis, Dr. Pablo Estrada! 
