@@ -1,8 +1,8 @@
 # Meta --------------------------------------------------------------------
 # Author:        Lisbeth Vargas
-# Date Created:  4/27/2025
-# Date Edited:   4/28/2025
-# Homework 5-2
+# Date Created:  5/1/2025
+# Date Edited:   5/4/2025
+# Homework 5-3
 
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, data.table, gdata, scales,
@@ -22,6 +22,7 @@ final.data <- final.data %>%
          perc_direct = ins_direct/adult_pop) %>%
   filter(! State %in% c("Puerto Rico", "District of Columbia"))
 
+## SUMMARZE THE DATA 
 # Question 1 -------------------------------------------------------------
 q1 <- direct.plot <- final.data %>% group_by(year) %>% summarize(mean=mean(perc_direct)) %>%
   ggplot(aes(x=year,y=mean)) + geom_line() + geom_point() + theme_bw() +
@@ -69,6 +70,7 @@ uninsurance.plot <- ggplot(data = ins.plot.dat, aes(x = year, y = mean, group = 
     y = "Fraction Uninsured",
     title = "Share of Uninsured over Time")
 
+## ESTIMATE ATES
 # Question 5 -------------------------------------------------------------
 dd.table <- final.data %>% 
   filter(is.na(expand_year) | expand_year==2014) %>%
@@ -119,4 +121,4 @@ mod.twfe2 <- feols(perc_unins~i(time_to_treat, expand_ever, ref=-1) | State + ye
 
 
 rm(list=c("final.data","ins.plot.dat"))
-save.image("/Users/lisbethvargas/Desktop/GitHub/Homework-5/5-2/hwk5_workspace.Rdata")
+save.image("/Users/lisbethvargas/Desktop/GitHub/Homework-5/5-3/hwk5_workspace.Rdata")
