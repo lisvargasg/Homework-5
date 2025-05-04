@@ -1,0 +1,167 @@
+---
+title: "Homework 5"
+subtitle: "Research Methods, Spring 2025"
+author: "Lisbeth Vargas"
+format:
+  pdf:
+    output-file: "vargas-hwk5-3"
+    output-ext:  "pdf"
+    header-includes:
+      - \usepackage{float}
+      - \floatplacement{table}{H}
+---
+
+```{r}
+#| include: false
+
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, stringr, readxl, 
+               data.table, gdata, scales, kableExtra, modelsummary, fixest)
+```
+
+
+```{r}
+#| include: false
+#| eval: true
+ 
+load("/Users/lisbethvargas/Desktop/GitHub/Homework-5/5-2/hwk5_workspace.Rdata")
+```
+
+The following is my submission for Homework 5. Note that the setup and analysis for these responses are in a seperate `R` script. The GitHub repository for this work is available [here](https://github.com/lisvargasg/Homework-5.git).
+
+\newpage
+# Summarize the data
+
+\noindent 1. Plot the share of insured individuals with direct purchase health insurance over time.
+
+```{r}
+#| echo: false
+#| label: fig-directplot
+#| fig-cap: "Share of Individuals with Direct Purchase"
+
+direct.plot
+```
+
+
+\noindent 2. Discuss the reduction in direct purchase health insurance in later years. Can you list a couple of policies that might have affected the success of the direct purchase insurance market?
+
+
+The direct purchase health insurance market has declined mainly due to the expansion of Medicaid and the creation of Health Insurance Marketplaces, which made subsidized plans more accessible to individuals. In 2017, the repeal of the individual mandate further diminished the incentive to purchase insurance by removing the penalty for not having coverage.
+
+Additionally, Trump's efforts to undermine the ACA—by attempting to cut subsidies and roll back essential health benefits—led to market instability and higher premiums, pushing more people away from purchasing insurance directly. Combined with rising costs in the individual market and the growing availability of alternatives like short-term plans, these changes further weakened the direct purchase insurance market.
+
+
+\newpage
+\noindent 3. Plot the share of the adult population with Medicaid over time.
+
+```{r}
+#| echo: false
+#| label: fig-medicaidplot
+#| fig-cap: "Share of Individuals with Medicaid"
+
+medicaid.plot
+```
+
+
+\newpage
+\noindent 4. Plot the share of uninsured over time, separately by states that expanded Medicaid in 2014 versus those that did not. Drop all states that expanded after 2014.
+
+```{r}
+#| echo: false
+#| label: fig-uninsuranceplot
+#| fig-cap: "Average Uninsured by Medicaid Expansion"
+
+uninsurance.plot
+```
+
+
+\newpage
+# Estimate ATEs
+For the rest of the assignment, we're going to apply the difference-in-differences estimator to the question of Medicaid expansion and uninsurance.
+
+
+\noindent 1. Calculate the average percent of uninsured individuals in 2012 and 2015, separately for expansion and non-expansion states. Present your results in a basic 2x2 DD table.
+
+
+```{r}
+#| echo: false
+#| label: tbl-ddtable
+#| tbl-cap: "DD Table for Medicaid Expansion"
+
+knitr::kable(dd.table, 
+             col.names=c("Group", "Pre", "Post"),
+             digits=2,
+             booktabs = TRUE,
+             escape=F,
+             align="l",
+             format='latex') %>% 
+  kable_styling(full_width=F)
+```
+
+\newpage
+\noindent 2. Estimate the effect of Medicaid expansion on the uninsurance rate using a standard DD regression estimator, again focusing only on states that expanded in 2014 versus those that never expanded.
+```{r}
+#| echo: false
+#| label: tbl-ddregs
+#| tbl-cap: "DD Estimates for Medicaid Expansion"
+
+modelsummary(dd.est,
+             coef_rename=c("postTRUE" = "Post 2014","expand_everTRUE"="Expand",
+                           "treat" = "Post x Expand"),
+             gof_omit='DF|F|Lik|AIC|BIC|Adj')
+```
+
+\newpage
+\noindent 3. Include state and year fixed effects in your estimates. Try using the lfe or fixest package to estimate this instead of directly including the fixed effects.
+```{r}
+#| echo: false
+#| label: tbl-ddregs2
+#| tbl-cap: "DD Estimates for Medicaid Expansion with TWFE"
+
+models <- list("Standard DD" = dd.est, 
+               "TWFE" = fe.est)
+modelsummary(models,
+             coef_rename=c("postTRUE" = "Post 2014","expand_everTRUE"="Expand",
+                           "treat" = "Post x Expand"),
+             gof_omit='DF|F|Lik|AIC|BIC|Adj')
+```
+
+\newpage
+\noindent 4. Repeat the analysis in question 7 but include all states. Are your results different? If so, why?
+```{r}
+#| echo: false
+#| label: tbl-ddregs3
+#| tbl-cap: "DD Estimates for Medicaid Expansion with Staggered Treatment"
+
+models <- list("Standard DD" = dd.est, 
+               "TWFE" = fe.est,
+               "Time-varying Treatment" = fe.est2)
+modelsummary(models,
+             coef_rename=c("postTRUE" = "Post 2014","expand_everTRUE"="Expand",
+                           "treat" = "Post x Expand"),
+             gof_omit='DF|F|Lik|AIC|BIC|Adj')
+```
+
+\newpage
+\noindent 5. Provide an “event study” graph showing the effects of Medicaid expansion in each year. Use the specification that includes state and year fixed effects, limited to states that expanded in 2014 or never expanded.
+```{r}
+#| echo: false
+#| label: fig-eventstudy1
+#| fig-cap: "Event Study with Common Treatment Time"
+
+iplot(mod.twfe, 
+      xlab = 'Time to treatment',
+      main = '')
+```
+
+\newpage
+\noindent 6. Repeat part 9 but again include states that expanded after 2014.
+```{r}
+#| echo: false
+#| label: fig-eventstudy2
+#| fig-cap: "Event Study with Staggered Treatment"
+
+iplot(mod.twfe2, 
+      xlab = 'Time to treatment',
+      main = '')
+```
